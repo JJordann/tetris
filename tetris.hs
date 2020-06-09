@@ -12,8 +12,8 @@ data State = State [Piece] Piece
 
 data PieceType = Square | Line | S | Z | T
 
--- boardHeight = 20
--- boardWidth  = 10
+boardW = 10
+boardH = 10
 
 newPiece :: PieceType -> Piece
 newPiece Square = Piece [(0, 0), (0, 1), (1, 0), (1, 1)] Yellow
@@ -33,8 +33,8 @@ showColour c = case c of
 
 
 emptyBoard :: Int -> Int -> [String]
-emptyBoard x y = 
-    replicate x $ concat $ replicate y "_"
+emptyBoard w h = 
+    replicate h $ concat $ replicate w "-"
 
 
 showBoard :: [String] -> IO ()
@@ -57,15 +57,24 @@ pieceToBoard (Piece cells colour) b =
 showState :: State -> [String]
 showState (State pieces active) = 
     foldl (\b p -> pieceToBoard p b) board allPieces 
-    where board     = (emptyBoard 10 10)
+    where board     = (emptyBoard boardW boardH)
           allPieces = active:pieces
 
--- todo: preveri če je na tleh
 canDrop :: State -> Bool
 canDrop (State pieces (Piece cs _)) = 
     let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] pieces 
+        ps' = ps ++ [(a, boardH) | a <- [0..boardW]]
         cs_moved = map (\(x, y) -> (x, y + 1)) cs
-    in all (\p -> not $ elem p ps) cs_moved
+    in all (\p -> not $ elem p ps') cs_moved
+
+--canDrop :: State -> Bool
+--canDrop (State pieces (Piece cs _)) = 
+--    if any (\(x, y) -> y == boardH - 1) cs 
+--        then False
+--        else 
+--            let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] pieces 
+--                cs_moved = map (\(x, y) -> (x, y + 1)) cs
+--            in all (\p -> not $ elem p ps) cs_moved
 
 
 dropActive :: State -> State
@@ -105,28 +114,17 @@ command c
     | c == 'i' = rotateRight
 
 
-gameLoop :: State -> IO ()
-gameLoop s = do
-    let board = showState s
-    showBoard board
-    cmd <- getChar
-    putStrLn ""
-    gameLoop (command cmd s)
-
 
 initialState = State [] p0 where
     p0 = newPiece Square
     
-
-start = gameLoop initialState
-
-
 main = do
     let loop s = do
         let board = showState s
         showBoard board
         cmd <- getChar
         putStrLn ""
+        print s
         if cmd == 'q'
             then return ()
             else loop (command cmd s)
