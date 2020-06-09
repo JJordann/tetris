@@ -78,14 +78,58 @@ dropActive s@(State pieces active@(Piece cells colour)) =
     
 
 
-newState = State [] p0 where
+moveRight :: State -> State
+moveRight (State pieces (Piece cs colour)) = 
+    let cs_moved = map (\(x, y) -> (x + 1, y)) cs
+    in (State pieces (Piece cs_moved colour)) where
+
+
+moveLeft :: State -> State
+moveLeft (State pieces (Piece cs colour)) = 
+    let cs_moved = map (\(x, y) -> (x - 1, y)) cs
+    in (State pieces (Piece cs_moved colour)) where
+
+
+rotateLeft :: State -> State
+rotateLeft = id
+
+rotateRight :: State -> State
+rotateRight = id
+
+command :: Char -> State -> State
+command c 
+    | c == 'h' = moveLeft
+    | c == 'j' = dropActive
+    | c == 'k' = rotateLeft
+    | c == 'l' = moveRight
+    | c == 'i' = rotateRight
+
+
+gameLoop :: State -> IO ()
+gameLoop s = do
+    let board = showState s
+    showBoard board
+    cmd <- getChar
+    putStrLn ""
+    gameLoop (command cmd s)
+
+
+initialState = State [] p0 where
     p0 = newPiece Square
-    --p1 = newPiece Line
     
 
-main = do 
-    let s0 = newState
-        s1 = dropActive s0
-        s2 = dropActive s1
-        b  = showState s2
-    showBoard b
+start = gameLoop initialState
+
+
+main = do
+    let loop s = do
+        let board = showState s
+        showBoard board
+        cmd <- getChar
+        putStrLn ""
+        if cmd == 'q'
+            then return ()
+            else loop (command cmd s)
+
+    loop initialState
+
