@@ -85,7 +85,7 @@ dropActive s@(State pieces active@(Piece cells colour)) =
         let droppedCells = map (\(x, y) -> (x, y + 1)) cells
         in State pieces (Piece droppedCells colour)
     else
-       State (active:pieces) (newPiece Square)
+       clearAll $ State (active:pieces) (newPiece Square)
     
 
 --       {-1, 1}
@@ -133,6 +133,26 @@ command c
     | c == 'l' = moveRight
     | c == 'i' = rotateRight
 
+
+
+clearRow :: Int -> State -> State
+clearRow nrow s@(State pieces active) = 
+    let row        = [(xs, nrow) | xs <- [0 .. boardW - 1]]
+        cells_flat = foldl (\flat (Piece cs _) -> flat ++ cs) [] pieces
+        full       = all (\c -> elem c cells_flat) row
+    in if full
+        then -- iz Piece odstrani celice, ki so bile izbrisane
+            let f = (\(Piece cells colour) -> 
+                    (Piece (filter (\c -> not $ elem c row) cells) colour))
+                pieces' = map f pieces
+            in (State pieces' active)   
+        else 
+            s
+
+
+clearAll :: State -> State
+clearAll s = 
+    foldl (\state nrow -> clearRow nrow state) s [0..boardH]
 
 
 initialState = State [] p0 where
