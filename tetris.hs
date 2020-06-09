@@ -60,10 +60,12 @@ showState (State pieces active) =
     where board     = (emptyBoard 10 10)
           allPieces = active:pieces
 
+-- todo: preveri če je na tleh
 canDrop :: State -> Bool
 canDrop (State pieces (Piece cs _)) = 
     let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] pieces 
-    in all (\p -> not $ elem p ps) cs
+        cs_moved = map (\(x, y) -> (x, y + 1)) cs
+    in all (\p -> not $ elem p ps) cs_moved
 
 
 dropActive :: State -> State
