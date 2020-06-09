@@ -40,6 +40,7 @@ emptyBoard w h =
 showBoard :: [String] -> IO ()
 showBoard = putStrLn . foldl1 (\acc a -> acc ++ "\n" ++ a)
 
+
 updateCell :: [String] -> (Int, Int) -> Char -> [String]
 updateCell board (x, y) new = 
     let (rowsBefore, row:rowsAfter) = splitAt y board
@@ -59,6 +60,7 @@ showState (State pieces active) =
     foldl (\b p -> pieceToBoard p b) board allPieces 
     where board     = (emptyBoard boardW boardH)
           allPieces = active:pieces
+
 
 canDrop :: State -> Bool
 canDrop (State pieces (Piece cs _)) = 
@@ -86,24 +88,42 @@ dropActive s@(State pieces active@(Piece cells colour)) =
        State (active:pieces) (newPiece Square)
     
 
+--       {-1, 1}
+canMove :: Int -> State -> Bool
+canMove dir (State pieces (Piece cs _)) = 
+    let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] pieces 
+        leftBorder  = [(-1, a) | a <- [0..boardH]]
+        rightBorder = [(boardW, a) | a <- [0..boardH]]
+        ps' = ps ++ leftBorder ++ rightBorder
+        cs_moved = map (\(x, y) -> (x + dir, y)) cs
+    in all (\p -> not $ elem p ps') cs_moved
+
 
 moveRight :: State -> State
-moveRight (State pieces (Piece cs colour)) = 
-    let cs_moved = map (\(x, y) -> (x + 1, y)) cs
-    in (State pieces (Piece cs_moved colour)) where
+moveRight s@(State pieces (Piece cs colour)) = 
+    if canMove 1 s then
+        let cs_moved = map (\(x, y) -> (x + 1, y)) cs
+        in (State pieces (Piece cs_moved colour))
+    else
+        s
 
 
 moveLeft :: State -> State
-moveLeft (State pieces (Piece cs colour)) = 
-    let cs_moved = map (\(x, y) -> (x - 1, y)) cs
-    in (State pieces (Piece cs_moved colour)) where
+moveLeft s@(State pieces (Piece cs colour)) = 
+    if canMove (-1) s then
+        let cs_moved = map (\(x, y) -> (x - 1, y)) cs
+        in (State pieces (Piece cs_moved colour))
+    else
+        s
 
 
 rotateLeft :: State -> State
 rotateLeft = id
 
+
 rotateRight :: State -> State
 rotateRight = id
+
 
 command :: Char -> State -> State
 command c 
