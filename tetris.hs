@@ -1,4 +1,5 @@
 import Data.Sequence (update, fromList)
+import Data.Char (ord)
 
 data Colour = Blue | Yellow | Red | Green | Pink | Orange | Purple
     deriving (Show)
@@ -89,7 +90,7 @@ dropActive s@(State pieces active@(Piece cells colour)) =
         let droppedCells = map (\(x, y) -> (x, y + 1)) cells
         in State pieces (Piece droppedCells colour)
     else
-       let (p, seed) = randomPiece 1
+       let (p, _) = randomPiece ((ord (showColour colour)) * (fst $ cells !! 1))
         in clearAll $ State (active:pieces) p
     
 
@@ -133,7 +134,7 @@ rotateRight = id
 command :: Char -> State -> State
 command c 
     | c == 'h' = moveLeft
-    | c == 'j' = dropActive
+    | c == 'j' = dropActive 
     | c == 'k' = rotate 1 False
     | c == 'l' = moveRight
     | c == 'i' = rotate 1 True
