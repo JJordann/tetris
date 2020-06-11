@@ -1,6 +1,6 @@
 import Data.Sequence (update, fromList)
 
-data Colour = Blue | Yellow | Red | Green | Pink
+data Colour = Blue | Yellow | Red | Green | Pink | Orange | Purple
     deriving (Show)
 
 data Piece = Piece [(Int, Int)] Colour 
@@ -10,7 +10,7 @@ data Piece = Piece [(Int, Int)] Colour
 data State = State [Piece] Piece 
     deriving (Show)
 
-data PieceType = Square | Line | S | Z | T
+data PieceType = Square | Line | S | Z | T | L1 | L2
 
 boardW = 10
 boardH = 10
@@ -21,6 +21,8 @@ newPiece Line   = Piece [(0, 0), (0, 1), (0, 2), (0, 3)] Blue
 newPiece S      = Piece [(1, 0), (1, 1), (0, 1), (0, 2)] Green
 newPiece Z      = Piece [(0, 0), (0, 1), (1, 1), (1, 2)] Red
 newPiece T      = Piece [(0, 0), (0, 1), (0, 2), (1, 1)] Pink
+newPiece L1     = Piece [(0, 0), (0, 1), (0, 2), (1, 2)] Pink
+newPiece L2     = Piece [(0, 0), (0, 1), (0, 2), (1, 0)] Pink
 
 
 showColour :: Colour -> Char
@@ -30,6 +32,8 @@ showColour c = case c of
     Green   ->  '3'
     Red     ->  '4'
     Pink    ->  '5'
+    Orange  ->  '6'
+    Purple  ->  '7'
 
 
 emptyBoard :: Int -> Int -> [String]
@@ -85,7 +89,8 @@ dropActive s@(State pieces active@(Piece cells colour)) =
         let droppedCells = map (\(x, y) -> (x, y + 1)) cells
         in State pieces (Piece droppedCells colour)
     else
-       clearAll $ State (active:pieces) (newPiece Square)
+       let (p, seed) = randomPiece 1
+        in clearAll $ State (active:pieces) p
     
 
 --       {-1, 1}
@@ -166,11 +171,13 @@ collapse s@(State pieces active) row =
 pointOfRotation :: Piece -> Int
 pointOfRotation (Piece _ colour) =
     case colour of
-      Yellow -> 0
-      Blue -> 1
-      Pink -> 1
-      Green -> 1
-      Red -> 1
+        Yellow  ->  0
+        Blue    ->  1
+        Pink    ->  1
+        Green   ->  1
+        Red     ->  1
+        Orange  ->  1
+        Purple  ->  1
         
 
 rotate :: Int -> Bool -> State -> State
@@ -185,10 +192,20 @@ rotate pivot clockwise s@(State pieces active@(Piece cs colour)) =
      in (State pieces (Piece moved colour))
 
 
---randomPiece :: Int -> (Piece, Int)
---randomPiece seed = 
---    let rnd = 
-
+-- todo
+randomPiece :: Int -> (Piece, Int)
+randomPiece seed = 
+    let rnd = mod seed 7
+        t = case rnd of
+              0 -> Square
+              1 -> Line
+              2 -> S
+              3 -> Z
+              4 -> T
+              5 -> L1
+              6 -> L2
+    in ((newPiece t), (seed + 1))
+    
 
 initialState = State [] p0 where
     p0 = newPiece S
