@@ -129,9 +129,9 @@ command :: Char -> State -> State
 command c 
     | c == 'h' = moveLeft
     | c == 'j' = dropActive
-    | c == 'k' = rotateLeft
+    | c == 'k' = rotate 1 False
     | c == 'l' = moveRight
-    | c == 'i' = rotateRight
+    | c == 'i' = rotate 1 True
 
 
 
@@ -141,11 +141,11 @@ clearRow nrow s@(State pieces active) =
         cells_flat = foldl (\flat (Piece cs _) -> flat ++ cs) [] pieces
         full       = all (\c -> elem c cells_flat) row
     in if full
-        then -- iz Piece odstrani celice, ki so bile izbrisane
+        then 
             let f = (\(Piece cells colour) -> 
                     (Piece (filter (\c -> not $ elem c row) cells) colour))
                 pieces' = map f pieces
-            in (State pieces' active)   
+            in (collapse (State pieces' active) nrow)
         else 
             s
 
@@ -155,8 +155,43 @@ clearAll s =
     foldl (\state nrow -> clearRow nrow state) s [0..boardH]
 
 
+collapse :: State -> Int -> State
+collapse s@(State pieces active) row =
+    let drop' = (\(x, y) -> if y < row then (x, y + 1) else (x, y))
+        f = (\(Piece cs colour) -> (Piece (map drop' cs) colour))
+        collapsed = map f pieces
+     in (State collapsed active) 
+
+
+pointOfRotation :: Piece -> Int
+pointOfRotation (Piece _ colour) =
+    case colour of
+      Yellow -> 0
+      Blue -> 1
+      Pink -> 1
+      Green -> 1
+      Red -> 1
+        
+
+rotate :: Int -> Bool -> State -> State
+rotate pivot clockwise s@(State pieces active@(Piece cs colour)) =
+    let rot = if clockwise 
+                 then (\(x, y) -> (-y, x))
+                 else (\(x, y) -> (y, -x))
+        (px, py) = cs !! pivot
+        relativeVec = map (\(x, y) -> (x - px, y - py)) cs
+        rotated = map rot relativeVec
+        moved = map (\(x, y) -> (x + px, y + py)) rotated
+     in (State pieces (Piece moved colour))
+
+
+--randomPiece :: Int -> (Piece, Int)
+--randomPiece seed = 
+--    let rnd = 
+
+
 initialState = State [] p0 where
-    p0 = newPiece Square
+    p0 = newPiece S
     
 main = do
     let loop s = do
