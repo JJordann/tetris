@@ -1,5 +1,8 @@
 import Data.Sequence (update, fromList)
 import Data.Char (ord)
+import Graphics.Gloss
+import Graphics.Gloss.Interface.Pure.Game
+
 
 data Colour = Blue | Yellow | Red | Green | Pink | Orange | Purple
     deriving (Show)
@@ -11,14 +14,15 @@ data Piece = Piece [(Int, Int)] Colour
 data State = State [Piece] Piece 
     deriving (Show)
 
-data PieceType = Square | Line | S | Z | T | L1 | L2
+data PieceType = Square | I | S | Z | T | L1 | L2
 
 boardW = 10
-boardH = 10
+boardH = 20
+cellSize = 20
 
 newPiece :: PieceType -> Piece
 newPiece Square = Piece [(0, 0), (0, 1), (1, 0), (1, 1)] Yellow
-newPiece Line   = Piece [(0, 0), (0, 1), (0, 2), (0, 3)] Blue
+newPiece I   = Piece [(0, 0), (0, 1), (0, 2), (0, 3)] Blue
 newPiece S      = Piece [(1, 0), (1, 1), (0, 1), (0, 2)] Green
 newPiece Z      = Piece [(0, 0), (0, 1), (1, 1), (1, 2)] Red
 newPiece T      = Piece [(0, 0), (0, 1), (0, 2), (1, 1)] Pink
@@ -135,9 +139,9 @@ command :: Char -> State -> State
 command c 
     | c == 'h' = moveLeft
     | c == 'j' = dropActive 
-    | c == 'k' = rotate 1 False
+    | c == 'k' = rotatePiece 1 False
     | c == 'l' = moveRight
-    | c == 'i' = rotate 1 True
+    | c == 'i' = rotatePiece 1 True
 
 
 
@@ -181,8 +185,8 @@ pointOfRotation (Piece _ colour) =
         Purple  ->  1
         
 
-rotate :: Int -> Bool -> State -> State
-rotate pivot clockwise s@(State pieces active@(Piece cs colour)) =
+rotatePiece :: Int -> Bool -> State -> State
+rotatePiece pivot clockwise s@(State pieces active@(Piece cs colour)) =
     let rot = if clockwise 
                  then (\(x, y) -> (-y, x))
                  else (\(x, y) -> (y, -x))
@@ -199,7 +203,7 @@ randomPiece seed =
     let rnd = mod seed 7
         t = case rnd of
               0 -> Square
-              1 -> Line
+              1 -> I
               2 -> S
               3 -> Z
               4 -> T
@@ -208,19 +212,79 @@ randomPiece seed =
     in ((newPiece t), (seed + 1))
     
 
+
+pieceToPicture :: Piece -> [Picture]
+pieceToPicture (Piece cells colour) =
+    let scale = (\x -> fromIntegral $ x * cellSize)
+        s = fromIntegral cellSize
+        f = (\(x, y) -> translate (scale x) (scale y) $ color red $ rectangleSolid s s)
+     in map f cells
+
+stateToPicture :: State -> [Picture]
+stateToPicture (State pieces active) = 
+    let pieces' = active:pieces
+     in foldl (\flat piece -> flat ++ (pieceToPicture piece)) [] pieces'
+
+
 initialState = State [] p0 where
-    p0 = newPiece S
+    p0 = newPiece L1
     
-main = do
-    let loop s = do
-        let board = showState s
-        showBoard board
-        cmd <- getChar
-        putStrLn ""
-        print s
-        if cmd == 'q'
-            then return ()
-            else loop (command cmd s)
+window :: Display
+window = InWindow "Tedris" (boardW * cellSize, boardH * cellSize) (10, 10)
 
-    loop initialState
+background :: Color
+background = black
 
+
+drawing :: Picture
+drawing = pictures . stateToPicture $ initialState
+
+fps = 10
+
+render :: State -> Picture
+render s = 
+    let pic = pictures $ stateToPicture s
+        scaled = scale 1.0 (-1.0) pic
+        dx = (-(fromIntegral (boardW * cellSize) / 2.0)) + fromIntegral cellSize / 2
+        dy = ((fromIntegral (boardH * cellSize) / 2.0))  - fromIntegral cellSize / 2
+        shifted = translate dx dy scaled
+     in shifted
+
+
+
+handleKeys :: Event -> State -> State
+handleKeys (EventKey (Char c) _ _ _)
+  | c == 'h'  = moveLeft
+  | c == 'j'  = dropActive
+  | c == 'k'  = rotatePiece 1 False
+  | c == 'l'  = moveRight
+  | c == 'i'  = rotatePiece 1 True
+
+handleKeys _ = id
+
+
+updateState :: Float -> State -> State
+updateState _ = id
+
+
+main :: IO ()
+main = play window background fps initialState render handleKeys updateState
+
+
+
+
+
+
+--main :: IO ()
+--main = do
+--    let loop s = do
+--        let board = showState s
+--        showBoard board
+--        cmd <- getChar
+--        putStrLn ""
+--        if cmd == 'q'
+--            then return ()
+--            else loop (command cmd s)
+--
+--    loop initialState
+--
