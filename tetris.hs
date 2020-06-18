@@ -22,7 +22,7 @@ cellSize = 20
 
 newPiece :: PieceType -> Piece
 newPiece Square = Piece [(0, 0), (0, 1), (1, 0), (1, 1)] Yellow
-newPiece I   = Piece [(0, 0), (0, 1), (0, 2), (0, 3)] Blue
+newPiece I      = Piece [(0, 0), (0, 1), (0, 2), (0, 3)] Blue
 newPiece S      = Piece [(1, 0), (1, 1), (0, 1), (0, 2)] Green
 newPiece Z      = Piece [(0, 0), (0, 1), (1, 1), (1, 2)] Red
 newPiece T      = Piece [(0, 0), (0, 1), (0, 2), (1, 1)] Pink
@@ -78,15 +78,6 @@ canDrop (State pieces (Piece cs _)) =
         cs_moved = map (\(x, y) -> (x, y + 1)) cs
     in all (\p -> not $ elem p ps') cs_moved
 
---canDrop :: State -> Bool
---canDrop (State pieces (Piece cs _)) = 
---    if any (\(x, y) -> y == boardH - 1) cs 
---        then False
---        else 
---            let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] pieces 
---                cs_moved = map (\(x, y) -> (x, y + 1)) cs
---            in all (\p -> not $ elem p ps) cs_moved
-
 
 dropActive :: State -> State
 dropActive s@(State pieces active@(Piece cells colour)) = 
@@ -94,7 +85,8 @@ dropActive s@(State pieces active@(Piece cells colour)) =
         let droppedCells = map (\(x, y) -> (x, y + 1)) cells
         in State pieces (Piece droppedCells colour)
     else
-       let (p, _) = randomPiece ((ord (showColour colour)) * (fst $ cells !! 1))
+       let seed = ((ord (showColour colour)) * (fst $ cells !! 1) + length pieces)
+           (p, _) = randomPiece seed
         in clearAll $ State (active:pieces) p
     
 
@@ -125,14 +117,6 @@ moveLeft s@(State pieces (Piece cs colour)) =
         in (State pieces (Piece cs_moved colour))
     else
         s
-
-
-rotateLeft :: State -> State
-rotateLeft = id
-
-
-rotateRight :: State -> State
-rotateRight = id
 
 
 command :: Char -> State -> State
@@ -212,6 +196,18 @@ randomPiece seed =
     in ((newPiece t), (seed + 1))
     
 
+hardDrop :: State -> State
+hardDrop s 
+    | canDrop s == True = hardDrop $ dropActive s
+    | otherwise = s
+
+
+ghostPiece :: State -> Piece
+ghostPiece s@(State pieces active) = 
+    let (State _ (Piece cells _)) = hardDrop s
+     in (Piece cells Pink)
+
+
 
 pieceToPicture :: Piece -> [Picture]
 pieceToPicture (Piece cells colour) =
@@ -221,8 +217,9 @@ pieceToPicture (Piece cells colour) =
      in map f cells
 
 stateToPicture :: State -> [Picture]
-stateToPicture (State pieces active) = 
-    let pieces' = active:pieces
+stateToPicture s@(State pieces active) = 
+    let ghost = ghostPiece s
+        pieces' = ghost:active:pieces
      in foldl (\flat piece -> flat ++ (pieceToPicture piece)) [] pieces'
 
 
@@ -239,7 +236,6 @@ background = black
 drawing :: Picture
 drawing = pictures . stateToPicture $ initialState
 
-fps = 10
 
 render :: State -> Picture
 render s = 
@@ -253,22 +249,31 @@ render s =
 
 
 handleKeys :: Event -> State -> State
-handleKeys (EventKey (Char c) _ _ _)
-  | c == 'h'  = moveLeft
-  | c == 'j'  = dropActive
-  | c == 'k'  = rotatePiece 1 False
-  | c == 'l'  = moveRight
-  | c == 'i'  = rotatePiece 1 True
+handleKeys (EventKey (Char c) Down _ _)
+  | c == 'h' = moveLeft
+  | c == 'j' = dropActive
+  | c == 'k' = rotatePiece 1 False
+  | c == 'l' = moveRight
+  | c == 'i' = rotatePiece 1 True
+  | c == 'm' = hardDrop
 
 handleKeys _ = id
 
 
 updateState :: Float -> State -> State
-updateState _ = id
+updateState _ = dropActive
 
+fps = 4
 
 main :: IO ()
-main = play window background fps initialState render handleKeys updateState
+main = play 
+        window 
+        background 
+        fps 
+        initialState 
+        render 
+        handleKeys 
+        updateState
 
 
 
