@@ -4,10 +4,7 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
 
 
-data Colour = Blue | Yellow | Red | Green | Pink | Orange | Purple
-    deriving (Show)
-
-data Piece = Piece [(Int, Int)] Colour 
+data Piece = Piece [(Int, Int)] Color 
     deriving (Show)
 
 --            [all pieces] ActivePiece
@@ -21,24 +18,24 @@ boardH = 20
 cellSize = 20
 
 newPiece :: PieceType -> Piece
-newPiece Square = Piece [(0, 0), (0, 1), (1, 0), (1, 1)] Yellow
-newPiece I      = Piece [(0, 0), (0, 1), (0, 2), (0, 3)] Blue
-newPiece S      = Piece [(1, 0), (1, 1), (0, 1), (0, 2)] Green
-newPiece Z      = Piece [(0, 0), (0, 1), (1, 1), (1, 2)] Red
-newPiece T      = Piece [(0, 0), (0, 1), (0, 2), (1, 1)] Pink
-newPiece L1     = Piece [(0, 0), (0, 1), (0, 2), (1, 2)] Pink
-newPiece L2     = Piece [(0, 0), (0, 1), (0, 2), (1, 0)] Pink
+newPiece Square = Piece [(0, 0), (0, 1), (1, 0), (1, 1)] yellow
+newPiece I      = Piece [(0, 0), (0, 1), (0, 2), (0, 3)] blue
+newPiece S      = Piece [(1, 0), (1, 1), (0, 1), (0, 2)] green
+newPiece Z      = Piece [(0, 0), (0, 1), (1, 1), (1, 2)] red
+newPiece T      = Piece [(0, 0), (0, 1), (0, 2), (1, 1)] magenta
+newPiece L1     = Piece [(0, 0), (0, 1), (0, 2), (1, 2)] orange
+newPiece L2     = Piece [(0, 0), (0, 1), (0, 2), (1, 0)] violet
 
 
-showColour :: Colour -> Char
-showColour c = case c of
-    Yellow  ->  '1'
-    Blue    ->  '2'
-    Green   ->  '3'
-    Red     ->  '4'
-    Pink    ->  '5'
-    Orange  ->  '6'
-    Purple  ->  '7'
+--showColour :: Color -> Char
+--showColour c = case c of
+--    yellow  ->  '1'
+--    blue    ->  '2'
+--    green   ->  '3'
+--    red     ->  '4'
+--    magenta ->  '5'
+--    orange  ->  '6'
+--    violet  ->  '7'
 
 
 emptyBoard :: Int -> Int -> [String]
@@ -58,17 +55,17 @@ updateCell board (x, y) new =
     in rowsBefore ++ updateRow:rowsAfter 
 
 
-pieceToBoard :: Piece -> [String] -> [String]
-pieceToBoard (Piece cells colour) b = 
-    foldl (\board cell -> updateCell board cell c) b cells
-        where c = showColour colour
+--pieceToBoard :: Piece -> [String] -> [String]
+--pieceToBoard (Piece cells colour) b = 
+--    foldl (\board cell -> updateCell board cell c) b cells
+--        where c = showColour colour
 
 
-showState :: State -> [String]
-showState (State pieces active) = 
-    foldl (\b p -> pieceToBoard p b) board allPieces 
-    where board     = (emptyBoard boardW boardH)
-          allPieces = active:pieces
+--showState :: State -> [String]
+--showState (State pieces active) = 
+--    foldl (\b p -> pieceToBoard p b) board allPieces 
+--    where board     = (emptyBoard boardW boardH)
+--          allPieces = active:pieces
 
 
 canDrop :: State -> Bool
@@ -85,7 +82,7 @@ dropActive s@(State pieces active@(Piece cells colour)) =
         let droppedCells = map (\(x, y) -> (x, y + 1)) cells
         in State pieces (Piece droppedCells colour)
     else
-       let seed = ((ord (showColour colour)) * (fst $ cells !! 1) + length pieces)
+       let seed = ((fst $ cells !! 1) + length pieces)
            (p, _) = randomPiece seed
         in clearAll $ State (active:pieces) p
     
@@ -123,9 +120,9 @@ command :: Char -> State -> State
 command c 
     | c == 'h' = moveLeft
     | c == 'j' = dropActive 
-    | c == 'k' = rotatePiece 1 False
+    | c == 'k' = rotatePiece 1 True
     | c == 'l' = moveRight
-    | c == 'i' = rotatePiece 1 True
+    | c == 'i' = rotatePiece 1 False
 
 
 
@@ -157,16 +154,18 @@ collapse s@(State pieces active) row =
      in (State collapsed active) 
 
 
-pointOfRotation :: Piece -> Int
-pointOfRotation (Piece _ colour) =
-    case colour of
-        Yellow  ->  0
-        Blue    ->  1
-        Pink    ->  1
-        Green   ->  1
-        Red     ->  1
-        Orange  ->  1
-        Purple  ->  1
+
+
+--pointOfRotation :: Piece -> Int
+--pointOfRotation (Piece _ colour) =
+--    case colour of
+--         yellow  ->  0
+--         blue    ->  1
+--         magenta ->  1
+--         green   ->  1
+--         red     ->  1
+--         orange  ->  1
+--         violet  ->  1
         
 
 rotatePiece :: Int -> Bool -> State -> State
@@ -193,7 +192,11 @@ randomPiece seed =
               4 -> T
               5 -> L1
               6 -> L2
-    in ((newPiece t), (seed + 1))
+        (Piece cells colour) = newPiece t
+        f = (\(x, y) -> (x + (boardW `div` 2 - 1), y))
+        shifted = map f cells
+        piece = (Piece shifted colour)
+    in (piece, (seed + 1))
     
 
 hardDrop :: State -> State
@@ -204,8 +207,8 @@ hardDrop s
 
 ghostPiece :: State -> Piece
 ghostPiece s@(State pieces active) = 
-    let (State _ (Piece cells _)) = hardDrop s
-     in (Piece cells Pink)
+    let (State _ (Piece cells colour)) = hardDrop s
+     in (Piece cells (light black))
 
 
 
@@ -213,8 +216,10 @@ pieceToPicture :: Piece -> [Picture]
 pieceToPicture (Piece cells colour) =
     let scale = (\x -> fromIntegral $ x * cellSize)
         s = fromIntegral cellSize
-        f = (\(x, y) -> translate (scale x) (scale y) $ color red $ rectangleSolid s s)
-     in map f cells
+        fill = (\(x, y) -> translate (scale x) (scale y) $ color colour $ rectangleSolid s s)
+        c = color (light $ light black)
+        outline = (\(x, y) -> translate (scale x) (scale y) $ c $ rectangleWire s s)
+     in (map fill cells) ++ (map outline cells)
 
 stateToPicture :: State -> [Picture]
 stateToPicture s@(State pieces active) = 
@@ -223,8 +228,6 @@ stateToPicture s@(State pieces active) =
      in foldl (\flat piece -> flat ++ (pieceToPicture piece)) [] pieces'
 
 
-initialState = State [] p0 where
-    p0 = newPiece L1
     
 window :: Display
 window = InWindow "Tedris" (boardW * cellSize, boardH * cellSize) (10, 10)
@@ -260,6 +263,10 @@ handleKeys (EventKey (Char c) Down _ _)
 handleKeys _ = id
 
 
+initialState = State [] p0 where
+    (p0, _) = randomPiece 0
+
+
 updateState :: Float -> State -> State
 updateState _ = dropActive
 
@@ -277,19 +284,3 @@ main = play
 
 
 
-
-
-
---main :: IO ()
---main = do
---    let loop s = do
---        let board = showState s
---        showBoard board
---        cmd <- getChar
---        putStrLn ""
---        if cmd == 'q'
---            then return ()
---            else loop (command cmd s)
---
---    loop initialState
---
