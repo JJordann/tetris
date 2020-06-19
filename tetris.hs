@@ -270,7 +270,7 @@ initialState = State [] p0 where
 updateState :: Float -> State -> State
 updateState _ = dropActive
 
-fps = 4
+fps = 3
 
 main :: IO ()
 main = play 
