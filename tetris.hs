@@ -31,15 +31,6 @@ newPiece L1     = Piece [(0, 0), (0, 1), (0, 2), (1, 2)] orange
 newPiece L2     = Piece [(0, 0), (0, 1), (0, 2), (1, 0)] violet
 
 
-emptyBoard :: Int -> Int -> [String]
-emptyBoard w h = 
-    replicate h $ concat $ replicate w "-"
-
-
-showBoard :: [String] -> IO ()
-showBoard = putStrLn . foldl1 (\acc a -> acc ++ "\n" ++ a)
-
-
 updateCell :: [String] -> (Int, Int) -> Char -> [String]
 updateCell board (x, y) new = 
     let (rowsBefore, row:rowsAfter) = splitAt y board
@@ -94,15 +85,6 @@ moveLeft s@(State pieces (Piece cs colour)) =
         in (State pieces (Piece cs_moved colour))
     else
         s
-
-
-command :: Char -> State -> State
-command c 
-    | c == 'h' = moveLeft
-    | c == 'j' = dropActive 
-    | c == 'k' = rotatePiece 1 True
-    | c == 'l' = moveRight
-    | c == 'i' = rotatePiece 1 False
 
 
 
