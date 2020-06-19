@@ -7,15 +7,19 @@ import Graphics.Gloss.Interface.Pure.Game
 data Piece = Piece [(Int, Int)] Color 
     deriving (Show)
 
+
 --            [all pieces] ActivePiece
 data State = State [Piece] Piece 
     deriving (Show)
 
+
 data PieceType = Square | I | S | Z | T | L1 | L2
+
 
 boardW = 10
 boardH = 20
 cellSize = 20
+
 
 newPiece :: PieceType -> Piece
 newPiece Square = Piece [(0, 0), (0, 1), (1, 0), (1, 1)] yellow
@@ -25,17 +29,6 @@ newPiece Z      = Piece [(0, 0), (0, 1), (1, 1), (1, 2)] red
 newPiece T      = Piece [(0, 0), (0, 1), (0, 2), (1, 1)] magenta
 newPiece L1     = Piece [(0, 0), (0, 1), (0, 2), (1, 2)] orange
 newPiece L2     = Piece [(0, 0), (0, 1), (0, 2), (1, 0)] violet
-
-
---showColour :: Color -> Char
---showColour c = case c of
---    yellow  ->  '1'
---    blue    ->  '2'
---    green   ->  '3'
---    red     ->  '4'
---    magenta ->  '5'
---    orange  ->  '6'
---    violet  ->  '7'
 
 
 emptyBoard :: Int -> Int -> [String]
@@ -53,19 +46,6 @@ updateCell board (x, y) new =
         (before, _:after) = splitAt x row
         updateRow = concat [before, new:after]
     in rowsBefore ++ updateRow:rowsAfter 
-
-
---pieceToBoard :: Piece -> [String] -> [String]
---pieceToBoard (Piece cells colour) b = 
---    foldl (\board cell -> updateCell board cell c) b cells
---        where c = showColour colour
-
-
---showState :: State -> [String]
---showState (State pieces active) = 
---    foldl (\b p -> pieceToBoard p b) board allPieces 
---    where board     = (emptyBoard boardW boardH)
---          allPieces = active:pieces
 
 
 canDrop :: State -> Bool
@@ -154,20 +134,6 @@ collapse s@(State pieces active) row =
      in (State collapsed active) 
 
 
-
-
---pointOfRotation :: Piece -> Int
---pointOfRotation (Piece _ colour) =
---    case colour of
---         yellow  ->  0
---         blue    ->  1
---         magenta ->  1
---         green   ->  1
---         red     ->  1
---         orange  ->  1
---         violet  ->  1
-        
-
 rotatePiece :: Int -> Bool -> State -> State
 rotatePiece pivot clockwise s@(State pieces active@(Piece cs colour)) =
     let rot = if clockwise 
@@ -220,6 +186,7 @@ pieceToPicture (Piece cells colour) =
         c = color (light $ light black)
         outline = (\(x, y) -> translate (scale x) (scale y) $ c $ rectangleWire s s)
      in (map fill cells) ++ (map outline cells)
+
 
 stateToPicture :: State -> [Picture]
 stateToPicture s@(State pieces active) = 
