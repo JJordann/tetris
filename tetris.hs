@@ -2,6 +2,7 @@ import Data.Sequence (update, fromList)
 import Data.Char (ord)
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
+import Data.List
 
 
 data Piece = Piece [(Int, Int)] Color 
@@ -18,17 +19,17 @@ data PieceType = Square | I | S | Z | T | L1 | L2
 
 boardW = 10
 boardH = 20
-cellSize = 20
+cellSize = 30
 
 
 newPiece :: PieceType -> Piece
-newPiece Square = Piece [(0, 0), (0, 1), (1, 0), (1, 1)] yellow
-newPiece I      = Piece [(0, 0), (0, 1), (0, 2), (0, 3)] blue
-newPiece S      = Piece [(1, 0), (1, 1), (0, 1), (0, 2)] green
-newPiece Z      = Piece [(0, 0), (0, 1), (1, 1), (1, 2)] red
-newPiece T      = Piece [(0, 0), (0, 1), (0, 2), (1, 1)] magenta
-newPiece L1     = Piece [(0, 0), (0, 1), (0, 2), (1, 2)] orange
-newPiece L2     = Piece [(0, 0), (0, 1), (0, 2), (1, 0)] violet
+newPiece Square = Piece [(0, 1), (0, 0), (1, 0), (1, 1)] yellow
+newPiece I      = Piece [(0, 1), (0, 0), (0, 2), (0, 3)] blue
+newPiece S      = Piece [(1, 1), (1, 0), (0, 1), (0, 2)] green
+newPiece Z      = Piece [(0, 1), (0, 0), (1, 1), (1, 2)] red
+newPiece T      = Piece [(0, 1), (0, 0), (0, 2), (1, 1)] magenta
+newPiece L1     = Piece [(0, 1), (0, 0), (0, 2), (1, 2)] orange
+newPiece L2     = Piece [(0, 1), (0, 0), (0, 2), (1, 0)] violet
 
 
 updateCell :: [String] -> (Int, Int) -> Char -> [String]
@@ -116,8 +117,26 @@ collapse s@(State pieces active) row =
      in (State collapsed active) 
 
 
+flatten :: State -> [(Int, Int)]
+flatten (State pieces (Piece cs _)) = 
+    foldl (\acc (Piece c _) -> acc ++ c) cs pieces
+
+
+inBounds :: (Int, Int) -> Bool
+inBounds (x, y) = x >= 0 && x < boardW && y >= 0 && y < boardH
+
+
+canRotate :: State -> Bool -> Bool
+canRotate s dir =
+        let rotated = rotatePiece 0 dir s 
+            flat = flatten rotated
+            allInBounds = all inBounds flat
+            notOverlapping = length flat == length (nub flat)
+         in allInBounds && notOverlapping
+
+
 rotatePiece :: Int -> Bool -> State -> State
-rotatePiece pivot clockwise s@(State pieces active@(Piece cs colour)) =
+rotatePiece pivot clockwise s@(State pieces (Piece cs colour)) =
     let rot = if clockwise 
                  then (\(x, y) -> (-y, x))
                  else (\(x, y) -> (y, -x))
@@ -126,6 +145,20 @@ rotatePiece pivot clockwise s@(State pieces active@(Piece cs colour)) =
         rotated = map rot relativeVec
         moved = map (\(x, y) -> (x + px, y + py)) rotated
      in (State pieces (Piece moved colour))
+
+
+
+safeRotate :: Bool -> State -> State
+safeRotate dir s = 
+    let rot = rotatePiece 0 dir
+     in if canRotate s dir
+        then rot s
+        else if canRotate (moveLeft s) dir
+                 then rot (moveLeft s)
+                 else if canRotate (moveRight s) dir
+                      then rot (moveRight s)
+                      else s
+       
 
 
 -- todo
@@ -159,6 +192,12 @@ ghostPiece s@(State pieces active) =
      in (Piece cells (light black))
 
 
+gameOver :: State -> Bool
+gameOver s = 
+    let flat = flatten s
+     in length flat /= length (nub flat)
+    
+
 
 pieceToPicture :: Piece -> [Picture]
 pieceToPicture (Piece cells colour) =
@@ -177,7 +216,6 @@ stateToPicture s@(State pieces active) =
      in foldl (\flat piece -> flat ++ (pieceToPicture piece)) [] pieces'
 
 
-    
 window :: Display
 window = InWindow "Tedris" (boardW * cellSize, boardH * cellSize) (10, 10)
 
@@ -204,9 +242,9 @@ handleKeys :: Event -> State -> State
 handleKeys (EventKey (Char c) Down _ _)
   | c == 'h' = moveLeft
   | c == 'j' = dropActive
-  | c == 'k' = rotatePiece 1 False
+  | c == 'k' = safeRotate False
   | c == 'l' = moveRight
-  | c == 'i' = rotatePiece 1 True
+  | c == 'i' = safeRotate True
   | c == 'm' = hardDrop
 
 handleKeys _ = id
