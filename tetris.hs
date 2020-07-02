@@ -152,12 +152,12 @@ safeRotate :: Bool -> State -> State
 safeRotate dir s = 
     let rot = rotatePiece 0 dir
      in if canRotate s dir
-        then rot s
-        else if canRotate (moveLeft s) dir
-                 then rot (moveLeft s)
-                 else if canRotate (moveRight s) dir
-                      then rot (moveRight s)
-                      else s
+            then rot s
+            else if canRotate (moveLeft s) dir
+                     then rot (moveLeft s)
+                     else if canRotate (moveRight s) dir
+                              then rot (moveRight s)
+                              else s
        
 
 
