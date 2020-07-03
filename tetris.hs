@@ -12,7 +12,8 @@ data Piece = Piece [(Int, Int)] Color
 data State = State {
     pieces :: [Piece],
     active :: Piece,
-    score :: Integer
+    score :: Integer,
+    recentlyMoved :: Bool
    } deriving (Show)
 
 
@@ -59,12 +60,17 @@ dropActive s =
          let droppedCells = map (\(x, y) -> (x, y + 1)) (pCells $ active s)
              colour = pColor $ active s
           in s {active = (Piece droppedCells colour) }
-    else
-       let seed = ((fst $ (pCells $ active s) !! 1) + length (pieces s))
-           (p, _) = randomPiece seed
-           newState = s { pieces = (active s):(pieces s) , active = p}
-        in clearAll newState
+    else if (recentlyMoved s) == False 
+        then
+           let seed = ((fst $ (pCells $ active s) !! 1) + length (pieces s))
+               (p, _) = randomPiece seed
+               newState = s { pieces = (active s):(pieces s) , active = p}
+            in clearAll newState
+        else
+            s { recentlyMoved = False}
+
     
+
 ----       {-1, 1}
 canMove :: Int -> State -> Bool
 canMove dir s = 
@@ -82,7 +88,7 @@ moveRight s =
         let cs = pCells $ active s
             cs_moved = map (\(x, y) -> (x + 1, y)) cs
             piece_moved = Piece cs_moved (pColor $ active s)
-         in s { active = piece_moved }
+         in s { active = piece_moved , recentlyMoved = True}
     else
         s
 
@@ -93,7 +99,7 @@ moveLeft s =
         let cs = pCells $ active s
             cs_moved = map (\(x, y) -> (x - 1, y)) cs
             piece_moved = Piece cs_moved (pColor $ active s)
-         in s { active = piece_moved }
+         in s { active = piece_moved , recentlyMoved = True}
     else
         s
 
@@ -159,7 +165,7 @@ rotatePiece pivot clockwise s =
         relativeVec = map (\(x, y) -> (x - px, y - py)) cs
         rotated = map rot relativeVec
         moved = map (\(x, y) -> (x + px, y + py)) rotated
-     in s { active = (Piece moved colour) } 
+     in s { active = (Piece moved colour) , recentlyMoved = True } 
 
 
 
@@ -198,7 +204,7 @@ randomPiece seed =
 hardDrop :: State -> State
 hardDrop s 
     | canDrop s == True = hardDrop $ dropActive s
-    | otherwise = s
+    | otherwise = s {recentlyMoved = False}
 
 
 ghostPiece :: State -> Piece
@@ -268,10 +274,10 @@ handleKeys _ = id
 initialState = State {
     pieces = [],
     active = fst $ randomPiece 0,
-    score = 0
+    score = 0,
+    recentlyMoved = False
    }
     
-
 
 updateState :: Float -> State -> State
 updateState _ = dropActive
