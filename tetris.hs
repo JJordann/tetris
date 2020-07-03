@@ -9,9 +9,11 @@ data Piece = Piece [(Int, Int)] Color
     deriving (Show)
 
 
---            [all pieces] ActivePiece
-data State = State [Piece] Piece 
-    deriving (Show)
+data State = State {
+    pieces :: [Piece],
+    active :: Piece,
+    score :: Integer
+   } deriving (Show)
 
 
 data PieceType = Square | I | S | Z | T | L1 | L2
@@ -32,74 +34,82 @@ newPiece L1     = Piece [(0, 1), (0, 0), (0, 2), (1, 2)] orange
 newPiece L2     = Piece [(0, 1), (0, 0), (0, 2), (1, 0)] violet
 
 
-updateCell :: [String] -> (Int, Int) -> Char -> [String]
-updateCell board (x, y) new = 
-    let (rowsBefore, row:rowsAfter) = splitAt y board
-        (before, _:after) = splitAt x row
-        updateRow = concat [before, new:after]
-    in rowsBefore ++ updateRow:rowsAfter 
+-- projections for Piece
+pCells :: Piece -> [(Int, Int)]
+pCells p = cells where
+    (Piece cells _) = p
+
+pColor :: Piece -> Color
+pColor p = col where
+    (Piece _ col) = p
+
 
 
 canDrop :: State -> Bool
-canDrop (State pieces (Piece cs _)) = 
-    let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] pieces 
+canDrop s = 
+    let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] (pieces s)
         ps' = ps ++ [(a, boardH) | a <- [0..boardW]]
-        cs_moved = map (\(x, y) -> (x, y + 1)) cs
+        cs_moved = map (\(x, y) -> (x, y + 1)) (pCells $ active s)
     in all (\p -> not $ elem p ps') cs_moved
 
 
 dropActive :: State -> State
-dropActive s@(State pieces active@(Piece cells colour)) = 
+dropActive s = 
     if canDrop s then
-        let droppedCells = map (\(x, y) -> (x, y + 1)) cells
-        in State pieces (Piece droppedCells colour)
+         let droppedCells = map (\(x, y) -> (x, y + 1)) (pCells $ active s)
+             colour = pColor $ active s
+          in s {active = (Piece droppedCells colour) }
     else
-       let seed = ((fst $ cells !! 1) + length pieces)
+       let seed = ((fst $ (pCells $ active s) !! 1) + length (pieces s))
            (p, _) = randomPiece seed
-        in clearAll $ State (active:pieces) p
+           newState = s { pieces = (active s):(pieces s) , active = p}
+        in clearAll newState
     
-
---       {-1, 1}
+----       {-1, 1}
 canMove :: Int -> State -> Bool
-canMove dir (State pieces (Piece cs _)) = 
-    let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] pieces 
+canMove dir s = 
+    let ps = foldl (\flat (Piece cells _) -> flat ++ cells) [] (pieces s)
         leftBorder  = [(-1, a) | a <- [0..boardH]]
         rightBorder = [(boardW, a) | a <- [0..boardH]]
         ps' = ps ++ leftBorder ++ rightBorder
-        cs_moved = map (\(x, y) -> (x + dir, y)) cs
+        cs_moved = map (\(x, y) -> (x + dir, y)) (pCells $ active s)
     in all (\p -> not $ elem p ps') cs_moved
 
 
 moveRight :: State -> State
-moveRight s@(State pieces (Piece cs colour)) = 
+moveRight s = 
     if canMove 1 s then
-        let cs_moved = map (\(x, y) -> (x + 1, y)) cs
-        in (State pieces (Piece cs_moved colour))
+        let cs = pCells $ active s
+            cs_moved = map (\(x, y) -> (x + 1, y)) cs
+            piece_moved = Piece cs_moved (pColor $ active s)
+         in s { active = piece_moved }
     else
         s
 
 
 moveLeft :: State -> State
-moveLeft s@(State pieces (Piece cs colour)) = 
+moveLeft s = 
     if canMove (-1) s then
-        let cs_moved = map (\(x, y) -> (x - 1, y)) cs
-        in (State pieces (Piece cs_moved colour))
+        let cs = pCells $ active s
+            cs_moved = map (\(x, y) -> (x - 1, y)) cs
+            piece_moved = Piece cs_moved (pColor $ active s)
+         in s { active = piece_moved }
     else
         s
 
 
-
 clearRow :: Int -> State -> State
-clearRow nrow s@(State pieces active) = 
+clearRow nrow s = 
     let row        = [(xs, nrow) | xs <- [0 .. boardW - 1]]
-        cells_flat = foldl (\flat (Piece cs _) -> flat ++ cs) [] pieces
+        cells_flat = foldl (\flat (Piece cs _) -> flat ++ cs) [] (pieces s)
         full       = all (\c -> elem c cells_flat) row
     in if full
         then 
             let f = (\(Piece cells colour) -> 
                     (Piece (filter (\c -> not $ elem c row) cells) colour))
-                pieces' = map f pieces
-            in (collapse (State pieces' active) nrow)
+                pieces' = map f (pieces s)
+                newState = s {pieces = pieces'}
+            in (collapse newState nrow)
         else 
             s
 
@@ -110,16 +120,19 @@ clearAll s =
 
 
 collapse :: State -> Int -> State
-collapse s@(State pieces active) row =
+collapse s row =
     let drop' = (\(x, y) -> if y < row then (x, y + 1) else (x, y))
         f = (\(Piece cs colour) -> (Piece (map drop' cs) colour))
-        collapsed = map f pieces
-     in (State collapsed active) 
+        collapsed = map f (pieces s)
+     in s { pieces = collapsed} 
+
 
 
 flatten :: State -> [(Int, Int)]
-flatten (State pieces (Piece cs _)) = 
-    foldl (\acc (Piece c _) -> acc ++ c) cs pieces
+flatten s = 
+    let activeCells = pCells $ active s
+     in foldl (\acc (Piece c _) -> acc ++ c) activeCells (pieces s)
+
 
 
 inBounds :: (Int, Int) -> Bool
@@ -136,15 +149,17 @@ canRotate s dir =
 
 
 rotatePiece :: Int -> Bool -> State -> State
-rotatePiece pivot clockwise s@(State pieces (Piece cs colour)) =
+rotatePiece pivot clockwise s =
     let rot = if clockwise 
                  then (\(x, y) -> (-y, x))
                  else (\(x, y) -> (y, -x))
+        cs = pCells $ active s
+        colour = pColor $ active s
         (px, py) = cs !! pivot
         relativeVec = map (\(x, y) -> (x - px, y - py)) cs
         rotated = map rot relativeVec
         moved = map (\(x, y) -> (x + px, y + py)) rotated
-     in (State pieces (Piece moved colour))
+     in s { active = (Piece moved colour) } 
 
 
 
@@ -187,15 +202,15 @@ hardDrop s
 
 
 ghostPiece :: State -> Piece
-ghostPiece s@(State pieces active) = 
-    let (State _ (Piece cells colour)) = hardDrop s
-     in (Piece cells (light black))
+ghostPiece s = 
+    let dropped = active $ hardDrop s
+     in (Piece (pCells dropped) (light black))
 
 
-gameOver :: State -> Bool
-gameOver s = 
-    let flat = flatten s
-     in length flat /= length (nub flat)
+--gameOver :: State -> Bool
+--gameOver s = 
+--    let flat = flatten s
+--     in length flat /= length (nub flat)
     
 
 
@@ -210,10 +225,11 @@ pieceToPicture (Piece cells colour) =
 
 
 stateToPicture :: State -> [Picture]
-stateToPicture s@(State pieces active) = 
+stateToPicture s = 
     let ghost = ghostPiece s
-        pieces' = ghost:active:pieces
+        pieces' = ghost:(active s):(pieces s)
      in foldl (\flat piece -> flat ++ (pieceToPicture piece)) [] pieces'
+
 
 
 window :: Display
@@ -237,7 +253,6 @@ render s =
      in shifted
 
 
-
 handleKeys :: Event -> State -> State
 handleKeys (EventKey (Char c) Down _ _)
   | c == 'h' = moveLeft
@@ -250,8 +265,12 @@ handleKeys (EventKey (Char c) Down _ _)
 handleKeys _ = id
 
 
-initialState = State [] p0 where
-    (p0, _) = randomPiece 0
+initialState = State {
+    pieces = [],
+    active = fst $ randomPiece 0,
+    score = 0
+   }
+    
 
 
 updateState :: Float -> State -> State
