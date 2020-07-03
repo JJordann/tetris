@@ -181,7 +181,6 @@ safeRotate dir s =
                               else s
        
 
-
 -- todo
 randomPiece :: Int -> (Piece, Int)
 randomPiece seed = 
