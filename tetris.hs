@@ -12,7 +12,8 @@ data State = State {
     pieces :: [Piece],
     active :: Piece,
     score :: Int,
-    recentlyMoved :: Bool
+    recentlyMoved :: Bool,
+    pieceQueue :: [Piece]
    } deriving (Show)
 
 
@@ -68,10 +69,14 @@ dropActive s =
         then
            let seed = ((fst $ (pCells $ active s) !! 1) + length (pieces s))
                (p, _) = randomPiece seed
-               newState = s { pieces = (active s):(pieces s) , active = p}
+               newActive = (pieceQueue s !! 0)
+               newQueue = (drop 1 $ pieceQueue s) ++ [p]
+               newState = s { pieces = (active s):(pieces s),
+                              active = newActive,
+                              pieceQueue = newQueue }
             in clearAll newState
         else
-            s { recentlyMoved = False}
+            s { recentlyMoved = False }
 
     
 
@@ -150,7 +155,8 @@ flatten s =
 
 
 inBounds :: (Int, Int) -> Bool
-inBounds (x, y) = x >= 0 && x < boardW && y >= 0 && y < boardH
+inBounds (x, y) = 
+    x >= 0 && x < boardW && y >= 0 && y < boardH
 
 
 canRotate :: State -> Bool -> Bool
@@ -226,9 +232,6 @@ gameOver s =
      in length flat /= length (nub flat)
     
 
-
-
-
 handleKeys :: Event -> State -> State
 handleKeys (EventKey (Char c) Down _ _)
   | c == 'h' = moveLeft
@@ -264,16 +267,27 @@ window = InWindow "Tedris" (boardW * cellSize + uiWidth, boardH * cellSize) (10,
             where uiWidth = round (fromIntegral cellSize * (fromIntegral boardW) * 0.5)
 
 
-drawUI :: State -> [Picture]
+drawUI :: State -> Picture
 drawUI s = 
-    let uiWidth = fromIntegral (boardW * cellSize) * 0.5
-        w = fromIntegral cellSize * (fromIntegral boardW / 4.0)
+    let w = fromIntegral cellSize * (fromIntegral boardW / 4.0)
         halfH = fromIntegral $ boardH * cellSize 
-    in map (translate w 0) [
+    in pictures $ map (translate w 0) [
         translate 10 (halfH / 2 - 40) $ scale 0.3 0.3 $ color white $ Text ("Score:"),
         translate 10 (halfH / 2 - 80) $ scale 0.3 0.3 $ color white $ Text (show $ score s),
         color (light red) $ Line [(0, halfH), (0, -halfH)]
     ]
+
+
+drawPieceQueue :: State -> Picture
+drawPieceQueue s = 
+    let dx = fromIntegral $ cellSize 
+        dy = fromIntegral $ cellSize * 5
+        queue = pieceQueue s
+        p1 = translate dx (dy)  $ pictures . pieceToPicture $ queue !! 0
+        p2 = translate dx    0  $ pictures . pieceToPicture $ queue !! 1
+        p3 = translate dx (-dy) $ pictures . pieceToPicture $ queue !! 2
+     in translate 0 (-100) $ pictures [p1, p2, p3]
+
 
 render :: State -> Picture
 render s = 
@@ -284,14 +298,15 @@ render s =
         dx = halfWidth + fromIntegral cellSize / 2
         dy = ((fromIntegral (boardH * cellSize) / 2.0))  - fromIntegral cellSize / 2
         shifted = translate dx dy scaled
-     in pictures $ shifted:(drawUI s)
+     in pictures $ [shifted, drawUI s, drawPieceQueue s]
 
 
 initialState = State {
     pieces = [],
     active = fst $ randomPiece 0,
     score = 0,
-    recentlyMoved = False
+    recentlyMoved = False,
+    pieceQueue = map (\i -> fst $ randomPiece i) [1..3]
 }
     
 background :: Color
