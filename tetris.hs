@@ -1,6 +1,5 @@
 import Data.Sequence (update, fromList)
 import Data.Char (ord)
-import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
 import Data.List
 
@@ -12,19 +11,24 @@ data Piece = Piece [(Int, Int)] Color
 data State = State {
     pieces :: [Piece],
     active :: Piece,
-    score :: Integer,
+    score :: Int,
     recentlyMoved :: Bool
    } deriving (Show)
 
 
 data PieceType = Square | I | S | Z | T | L1 | L2
 
-
+boardW :: Int
 boardW = 10
+
+boardH :: Int
 boardH = 20
+
+cellSize :: Int
 cellSize = 30
 
 
+-- Pieces always rotate around the first cell
 newPiece :: PieceType -> Piece
 newPiece Square = Piece [(0, 1), (0, 0), (1, 0), (1, 1)] yellow
 newPiece I      = Piece [(0, 1), (0, 0), (0, 2), (0, 3)] blue
@@ -109,12 +113,12 @@ clearRow nrow s =
     let row        = [(xs, nrow) | xs <- [0 .. boardW - 1]]
         cells_flat = foldl (\flat (Piece cs _) -> flat ++ cs) [] (pieces s)
         full       = all (\c -> elem c cells_flat) row
-    in if full
-        then 
+    in if full then 
             let f = (\(Piece cells colour) -> 
                     (Piece (filter (\c -> not $ elem c row) cells) colour))
                 pieces' = map f (pieces s)
-                newState = s {pieces = pieces'}
+                oldScore = score s
+                newState = s {pieces = pieces' , score = oldScore + 1}
             in (collapse newState nrow)
         else 
             s
@@ -122,7 +126,11 @@ clearRow nrow s =
 
 clearAll :: State -> State
 clearAll s = 
-    foldl (\state nrow -> clearRow nrow state) s [0..boardH]
+    let oldScore = score s
+        newState = foldl (\state nrow -> clearRow nrow state) s [0..boardH]
+        scoreGain = ((score newState) - oldScore) ^ 2
+        newScore = oldScore + scoreGain
+     in newState { score = newScore } 
 
 
 collapse :: State -> Int -> State
@@ -212,11 +220,25 @@ ghostPiece s =
      in (Piece (pCells dropped) (light black))
 
 
---gameOver :: State -> Bool
---gameOver s = 
---    let flat = flatten s
---     in length flat /= length (nub flat)
+gameOver :: State -> Bool
+gameOver s = 
+    let flat = flatten s
+     in length flat /= length (nub flat)
     
+
+
+
+
+handleKeys :: Event -> State -> State
+handleKeys (EventKey (Char c) Down _ _)
+  | c == 'h' = moveLeft
+  | c == 'j' = dropActive
+  | c == 'k' = safeRotate False
+  | c == 'l' = moveRight
+  | c == 'i' = safeRotate True
+  | c == 'm' = hardDrop
+
+handleKeys _ = id
 
 
 pieceToPicture :: Piece -> [Picture]
@@ -238,36 +260,31 @@ stateToPicture s =
 
 
 window :: Display
-window = InWindow "Tedris" (boardW * cellSize, boardH * cellSize) (10, 10)
-
-background :: Color
-background = black
+window = InWindow "Tedris" (boardW * cellSize + uiWidth, boardH * cellSize) (10, 10)
+            where uiWidth = round (fromIntegral cellSize * (fromIntegral boardW) * 0.5)
 
 
-drawing :: Picture
-drawing = pictures . stateToPicture $ initialState
-
+drawUI :: State -> [Picture]
+drawUI s = 
+    let uiWidth = fromIntegral (boardW * cellSize) * 0.5
+        w = fromIntegral cellSize * (fromIntegral boardW / 4.0)
+        halfH = fromIntegral $ boardH * cellSize 
+    in map (translate w 0) [
+        translate 10 (halfH / 2 - 40) $ scale 0.3 0.3 $ color white $ Text ("Score:"),
+        translate 10 (halfH / 2 - 80) $ scale 0.3 0.3 $ color white $ Text (show $ score s),
+        color (light red) $ Line [(0, halfH), (0, -halfH)]
+    ]
 
 render :: State -> Picture
 render s = 
     let pic = pictures $ stateToPicture s
         scaled = scale 1.0 (-1.0) pic
-        dx = (-(fromIntegral (boardW * cellSize) / 2.0)) + fromIntegral cellSize / 2
+        uiWidth = fromIntegral (boardW * cellSize) * 0.5
+        halfWidth = (-(fromIntegral (boardW * cellSize) / 2.0 + uiWidth / 2.0))
+        dx = halfWidth + fromIntegral cellSize / 2
         dy = ((fromIntegral (boardH * cellSize) / 2.0))  - fromIntegral cellSize / 2
         shifted = translate dx dy scaled
-     in shifted
-
-
-handleKeys :: Event -> State -> State
-handleKeys (EventKey (Char c) Down _ _)
-  | c == 'h' = moveLeft
-  | c == 'j' = dropActive
-  | c == 'k' = safeRotate False
-  | c == 'l' = moveRight
-  | c == 'i' = safeRotate True
-  | c == 'm' = hardDrop
-
-handleKeys _ = id
+     in pictures $ shifted:(drawUI s)
 
 
 initialState = State {
@@ -275,8 +292,10 @@ initialState = State {
     active = fst $ randomPiece 0,
     score = 0,
     recentlyMoved = False
-   }
+}
     
+background :: Color
+background = black
 
 updateState :: Float -> State -> State
 updateState _ = dropActive
