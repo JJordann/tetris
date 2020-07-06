@@ -207,8 +207,9 @@ holdPiece s =
            newQueue = (drop 1 $ pieceQueue s) ++ [p]
         in s { active = newActive,
                pieceQueue = newQueue,
-               canHold = False}
-    else s
+               canHold = False }
+    else 
+        s
         
 
 
@@ -248,6 +249,14 @@ gameOver :: State -> Bool
 gameOver s = 
     let flat = flatten s
      in length flat /= length (nub flat)
+
+
+restartGame :: State -> State
+restartGame s = 
+    if gameOver s 
+       then initialState
+       else s
+        
     
 
 handleKeys :: Event -> State -> State
@@ -259,6 +268,7 @@ handleKeys (EventKey (Char c) Down _ _)
   | c == 'i' = safeRotate True
   | c == 'm' = hardDrop
   | c == 'f' = holdPiece
+  | c == 'r' = restartGame
 
 handleKeys _ = id
 
@@ -310,14 +320,17 @@ drawPieceQueue s =
 
 render :: State -> Picture
 render s = 
-    let pic = pictures $ stateToPicture s
-        scaled = scale 1.0 (-1.0) pic
-        uiWidth = fromIntegral (boardW * cellSize) * 0.5
-        halfWidth = (-(fromIntegral (boardW * cellSize) / 2.0 + uiWidth / 2.0))
-        dx = halfWidth + fromIntegral cellSize / 2
-        dy = ((fromIntegral (boardH * cellSize) / 2.0))  - fromIntegral cellSize / 2
-        shifted = translate dx dy scaled
-     in pictures $ [shifted, drawUI s, drawPieceQueue s]
+    if gameOver s == False then
+        let pic = pictures $ stateToPicture s
+            scaled = scale 1.0 (-1.0) pic
+            uiWidth = fromIntegral (boardW * cellSize) * 0.5
+            halfWidth = (-(fromIntegral (boardW * cellSize) / 2.0 + uiWidth / 2.0))
+            dx = halfWidth + fromIntegral cellSize / 2
+            dy = ((fromIntegral (boardH * cellSize) / 2.0))  - fromIntegral cellSize / 2
+            shifted = translate dx dy scaled
+         in pictures $ [shifted, drawUI s, drawPieceQueue s]
+    else 
+        menuScreen s
 
 
 initialState = State {
@@ -331,6 +344,16 @@ initialState = State {
     
 background :: Color
 background = black
+
+
+menuScreen :: State -> Picture
+menuScreen s = 
+    pictures $ map (color white . scale 0.3 0.3 . translate (-400) (300)) [
+        Text "Game Over",
+        translate 0 (-200) $ Text ("Score: " ++ (show $ score s)),
+        color (light (light red)) $ translate 0 (-500) . scale 0.5 0.5 $ Text "[r]estart | [q]uit"
+     ] 
+
 
 updateState :: Float -> State -> State
 updateState _ = dropActive
