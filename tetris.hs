@@ -13,7 +13,8 @@ data State = State {
     active :: Piece,
     score :: Int,
     recentlyMoved :: Bool,
-    pieceQueue :: [Piece]
+    pieceQueue :: [Piece],
+    canHold :: Bool
    } deriving (Show)
 
 
@@ -73,7 +74,8 @@ dropActive s =
                newQueue = (drop 1 $ pieceQueue s) ++ [p]
                newState = s { pieces = (active s):(pieces s),
                               active = newActive,
-                              pieceQueue = newQueue }
+                              pieceQueue = newQueue,
+                              canHold = True}
             in clearAll newState
         else
             s { recentlyMoved = False }
@@ -89,6 +91,7 @@ canMove dir s =
         ps' = ps ++ leftBorder ++ rightBorder
         cs_moved = map (\(x, y) -> (x + dir, y)) (pCells $ active s)
     in all (\p -> not $ elem p ps') cs_moved
+
 
 
 moveRight :: State -> State
@@ -195,6 +198,21 @@ safeRotate dir s =
                               else s
        
 
+holdPiece :: State -> State
+holdPiece s = 
+    if canHold s then
+       let seed = ((fst $ (pCells $ active s) !! 1) + length (pieces s))
+           (p, _) = randomPiece seed
+           newActive = (pieceQueue s !! 0)
+           newQueue = (drop 1 $ pieceQueue s) ++ [p]
+        in s { active = newActive,
+               pieceQueue = newQueue,
+               canHold = False}
+    else s
+        
+
+
+
 -- todo
 randomPiece :: Int -> (Piece, Int)
 randomPiece seed = 
@@ -240,6 +258,7 @@ handleKeys (EventKey (Char c) Down _ _)
   | c == 'l' = moveRight
   | c == 'i' = safeRotate True
   | c == 'm' = hardDrop
+  | c == 'f' = holdPiece
 
 handleKeys _ = id
 
@@ -306,7 +325,8 @@ initialState = State {
     active = fst $ randomPiece 0,
     score = 0,
     recentlyMoved = False,
-    pieceQueue = map (\i -> fst $ randomPiece i) [1..3]
+    pieceQueue = map (\i -> fst $ randomPiece i) [1..3],
+    canHold = True
 }
     
 background :: Color
